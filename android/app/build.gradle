@@ -3,6 +3,8 @@ plugins {
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+    // Firebase (reads android/app/google-services.json). Comment out if not using push.
+    id "com.google.gms.google-services"
 }
 
 android {
@@ -11,6 +13,8 @@ android {
     ndkVersion = "27.0.12077973" // required by secure_storage/webview/sqflite/path_provider
 
     compileOptions {
+        // Required by flutter_local_notifications (uses java.time on older APIs).
+        coreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
@@ -41,4 +45,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"
 }

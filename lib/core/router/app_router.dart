@@ -8,6 +8,7 @@ import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/register_screen.dart';
 import '../../features/auth/splash_screen.dart';
+import '../../features/auth/verify_email_screen.dart';
 import '../../features/bookings/bookings_screen.dart';
 import '../../features/bookings/ticket_screen.dart';
 import '../../features/checkout/checkout_screen.dart';
@@ -17,6 +18,8 @@ import '../../features/events/event_detail_screen.dart';
 import '../../features/events/events_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/home/search_screen.dart';
+import '../../features/common/trailer_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
 import '../../features/movies/movie_detail_screen.dart';
 import '../../features/movies/movies_list_screen.dart';
 import '../../features/movies/showtimes_screen.dart';
@@ -58,6 +61,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (loc == '/splash') return '/home';
 
       final authed = status == AuthStatus.authenticated;
+
+      // Signed in but email not verified → force the verification screen.
+      if (authed && ref.read(authProvider).user?.emailVerified == false) {
+        return loc == '/verify-email' ? null : '/verify-email';
+      }
+      // Verified users should never sit on the verify screen.
+      if (authed && loc == '/verify-email') return '/home';
+
       // Guests may browse everything except personal/booking areas.
       if (!authed && _isProtected(loc)) return '/login';
       return null;
@@ -67,6 +78,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/forgot', builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(path: '/verify-email', builder: (_, __) => const VerifyEmailScreen()),
 
       // Bottom-nav shell.
       StatefulShellRoute.indexedStack(
@@ -89,6 +101,17 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Full-screen flow routes (over the bottom nav).
       GoRoute(path: '/search', parentNavigatorKey: _rootKey, builder: (_, __) => const SearchScreen()),
+      GoRoute(path: '/notifications', parentNavigatorKey: _rootKey, builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: '/trailer',
+        parentNavigatorKey: _rootKey,
+        builder: (_, s) {
+          final a = s.extra as TrailerArgs?;
+          return a == null
+              ? const Scaffold(body: Center(child: Text('Trailer unavailable')))
+              : TrailerScreen(videoId: a.videoId, title: a.title);
+        },
+      ),
       GoRoute(
         path: '/movies/:slug',
         parentNavigatorKey: _rootKey,

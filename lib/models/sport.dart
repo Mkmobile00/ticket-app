@@ -13,6 +13,7 @@ class Sport {
   // Detail-only.
   final String? description;
   final String? startTime;
+  final String? trailerEmbedUrl;
   final List<SeatTier> tiers;
 
   Sport({
@@ -26,6 +27,7 @@ class Sport {
     this.city,
     this.description,
     this.startTime,
+    this.trailerEmbedUrl,
     this.tiers = const [],
   });
 
@@ -40,6 +42,7 @@ class Sport {
         city: j['city'] as String?,
         description: j['description'] as String?,
         startTime: j['start_time'] as String?,
+        trailerEmbedUrl: j['trailer_embed_url'] as String?,
         tiers: (j['tiers'] as List?)
                 ?.map((e) => SeatTier.fromJson(Map<String, dynamic>.from(e)))
                 .toList() ??

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/movie.dart';
 import '../../providers/providers.dart';
+import '../common/notification_bell.dart';
 import '../common/widgets.dart';
 
 class MoviesListScreen extends ConsumerStatefulWidget {
@@ -95,7 +96,7 @@ class _MoviesListScreenState extends ConsumerState<MoviesListScreen> {
     ref.listen(selectedCityProvider, (_, __) => _reload());
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Movies')),
+      appBar: AppBar(title: const Text('Movies'), actions: const [NotificationBell()]),
       body: Column(
         children: [
           _genreFilter(),

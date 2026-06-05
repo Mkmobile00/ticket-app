@@ -41,55 +41,57 @@ endpoint `POST /auth/google {id_token}` is already implemented.
 
 ---
 
-## B. Push Notifications (FCM)
+## B. Push Notifications (FCM) — NOW FULLY WIRED ✅
 
-**Code already in place:** `ApiService.registerDevice(token, platform)` and
-`removeDevice(token)` call the backend endpoints `POST /device-token` and
-`DELETE /device-token`. What's left is adding Firebase Messaging and calling
-`registerDevice` after login.
+Both the **app** and the **Laravel backend** are implemented end to end. The only
+things left are the two credential files only you can create from your Firebase
+project. Until they're added, everything still runs — push is just inactive.
 
-**Steps:**
-1. Complete A.1–A.4 above (same Firebase project + `google-services.json`).
-2. Add packages to `pubspec.yaml`:
-   ```yaml
-   firebase_core: ^3.6.0
-   firebase_messaging: ^15.1.3
-   ```
-   then `flutter pub get`.
-3. Apply the Google services Gradle plugin:
-   - `android/settings.gradle` → add to the `plugins { }` block:
-     ```
-     id "com.google.gms.google-services" version "4.4.2" apply false
-     ```
-   - `android/app/build.gradle` → add to its `plugins { }` block:
-     ```
-     id "com.google.gms.google-services"
-     ```
-4. Generate Firebase options:
+### What's already done (no code to write)
+
+**Flutter** (`buleto_app`):
+- `firebase_core`, `firebase_messaging`, `flutter_local_notifications` in `pubspec.yaml`.
+- `google-services` Gradle plugin applied (`android/settings.gradle` + `android/app/build.gradle`).
+- `POST_NOTIFICATIONS` permission in `AndroidManifest.xml`.
+- `lib/core/push/push_service.dart` — init, permission request, foreground
+  notifications, background handler, tap → deep-link routing.
+- `main.dart` calls `PushService.init()`; `AuthNotifier` registers the device
+  token after login/register/Google and on app-start, re-registers on token
+  refresh, and unregisters on logout. Taps route via `app.dart`.
+
+**Laravel** (`Buleto`):
+- `App\Services\FcmService` — sends via the FCM **HTTP v1** API (auth by signing a
+  JWT with the service-account key; no extra Composer package).
+- Auto-push when a booking is confirmed (`SendBookingConfirmationNotification`).
+- `php artisan bookings:remind` (scheduled every 15 min) for showtime reminders.
+- Admin → **Push Notifications** page to broadcast / target one user.
+- Config: `config/services.php → firebase`; env `FIREBASE_CREDENTIALS`, `FIREBASE_PROJECT_ID`.
+
+### Steps to activate (your two credential files)
+
+1. Firebase console → your project (steps A.1–A.3 above register the Android app
+   `com.buleto.buleto_app` and SHA-1).
+2. **App client key:** download **`google-services.json`** → place at
+   `buleto_app/android/app/google-services.json`. Then:
    ```powershell
-   dart pub global activate flutterfire_cli
-   flutterfire configure
+   cd buleto_app
+   flutter pub get
+   flutter run        # Android auto-reads google-services.json (no flutterfire needed)
    ```
-   This writes `lib/firebase_options.dart`.
-5. In `lib/main.dart`, initialise Firebase before `runApp`:
-   ```dart
-   WidgetsFlutterBinding.ensureInitialized();
-   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+   On first sign-in the app asks for notification permission and registers its token.
+3. **Backend sender key:** Firebase console → Project settings → **Service accounts**
+   → **Generate new private key** (downloads a JSON). Put it at:
    ```
-6. After a successful login (e.g. in `AuthNotifier.login/register/googleLogin`),
-   register the device token:
-   ```dart
-   final fcm = await FirebaseMessaging.instance.getToken();
-   if (fcm != null) {
-     await ref.read(apiProvider).registerDevice(fcm, platform: 'android');
-   }
+   Buleto/storage/app/firebase/service-account.json
    ```
-   And on logout call `removeDevice(fcm)` before clearing the session.
-7. Handle messages:
-   ```dart
-   FirebaseMessaging.onMessage.listen((m) { /* show in-app banner */ });
+   (or set `FIREBASE_CREDENTIALS` in `.env` to its path). That's it — `project_id`
+   is read from the file. Confirm in Admin → **Push Notifications** (status shows
+   "Firebase connected") and hit **Send** to a registered device.
+4. **Reminders (optional):** ensure the Laravel scheduler runs, e.g. a cron entry:
+   ```
+   * * * * * cd /path/to/Buleto && php artisan schedule:run >> /dev/null 2>&1
    ```
 
-> ⚠️ Do **not** add the `google-services` Gradle plugin until
-> `android/app/google-services.json` exists — the build fails without it.
-> That's why these steps are documented rather than pre-applied.
+> iOS additionally needs an APNs key uploaded to Firebase and a
+> `GoogleService-Info.plist`; the code paths are platform-agnostic and will work
+> once that's added.

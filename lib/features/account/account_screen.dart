@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/providers.dart';
+import '../common/notification_bell.dart';
 import '../common/widgets.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
@@ -95,7 +96,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     _fill();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('Account'), actions: const [NotificationBell()]),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

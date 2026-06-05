@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/sport.dart';
 import '../../providers/providers.dart';
+import '../common/web_view_screen.dart';
 import '../common/widgets.dart';
 import '../seats/seat_map_screen.dart';
 
@@ -51,7 +52,16 @@ class SportDetailScreen extends ConsumerWidget {
         SliverAppBar(
           expandedHeight: 240,
           pinned: true,
-          flexibleSpace: FlexibleSpaceBar(background: RoundedImage(url: s.bannerImage, radius: 0)),
+          flexibleSpace: FlexibleSpaceBar(
+            background: Stack(
+              fit: StackFit.expand,
+              children: [
+                RoundedImage(url: s.bannerImage, radius: 0),
+                if ((s.trailerEmbedUrl ?? '').isNotEmpty)
+                  Center(child: TrailerPlayButton(url: s.trailerEmbedUrl!, title: '${s.title} — Trailer')),
+              ],
+            ),
+          ),
         ),
         SliverToBoxAdapter(
           child: Padding(

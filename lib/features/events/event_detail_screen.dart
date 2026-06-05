@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/event.dart';
 import '../../providers/providers.dart';
+import '../common/web_view_screen.dart';
 import '../common/widgets.dart';
 import '../seats/seat_map_screen.dart';
 
@@ -51,7 +52,16 @@ class EventDetailScreen extends ConsumerWidget {
         SliverAppBar(
           expandedHeight: 240,
           pinned: true,
-          flexibleSpace: FlexibleSpaceBar(background: RoundedImage(url: e.bannerImage, radius: 0)),
+          flexibleSpace: FlexibleSpaceBar(
+            background: Stack(
+              fit: StackFit.expand,
+              children: [
+                RoundedImage(url: e.bannerImage, radius: 0),
+                if ((e.trailerEmbedUrl ?? '').isNotEmpty)
+                  Center(child: TrailerPlayButton(url: e.trailerEmbedUrl!, title: '${e.title} — Trailer')),
+              ],
+            ),
+          ),
         ),
         SliverToBoxAdapter(
           child: Padding(

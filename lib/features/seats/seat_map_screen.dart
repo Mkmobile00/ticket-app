@@ -159,26 +159,43 @@ class _SeatMapScreenState extends ConsumerState<SeatMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.args.subject, style: const TextStyle(fontSize: 16)),
-            if (widget.args.subtitle != null)
-              Text(widget.args.subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-          ],
-        ),
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        bottom: false,
+        child: Column(children: [
+          _header(),
+          Expanded(
+            child: _loading
+                ? const Loading()
+                : _error != null
+                    ? ErrorRetry(onRetry: () => _load(initial: true), message: _error!)
+                    : _buildMap(),
+          ),
+          if (!_loading && _error == null && (_map?.rows.isNotEmpty ?? false)) _legend(),
+        ]),
       ),
-      body: _loading
-          ? const Loading()
-          : _error != null
-              ? ErrorRetry(onRetry: () => _load(initial: true), message: _error!)
-              : _buildMap(),
       bottomNavigationBar: _loading || _error != null ? null : _bottomBar(),
+    );
+  }
+
+  Widget _header() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 16, 8),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => context.pop(),
+          child: Container(width: 40, height: 40, alignment: Alignment.center,
+            decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle, border: Border.all(color: AppColors.line)),
+            child: const Icon(Icons.arrow_back, size: 20, color: AppColors.text)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Select Seats', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.text)),
+          if (widget.args.subtitle != null)
+            Text(widget.args.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ])),
+      ]),
     );
   }
 
@@ -187,171 +204,161 @@ class _SeatMapScreenState extends ConsumerState<SeatMapScreen> {
     if (map.rows.isEmpty) {
       return const EmptyView(message: 'No seat layout configured for this show.', icon: Icons.event_seat_outlined);
     }
-    const seat = 36.0; // big, tappable seats with numbers; scroll for the rest
 
-    return Column(
-      children: [
-        _legend(),
-        Expanded(
-          // Two-axis scrolling: vertical (rows) + horizontal (seats per row).
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(child: _screenBar()),
-                    const SizedBox(height: 22),
-                    for (final row in map.rows) _rowWidget(row, seat),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _screenBar() {
-    return Column(
-      children: [
-        Container(
-          width: 240,
-          height: 6,
-          decoration: BoxDecoration(
-            gradient: AppColors.accentGradient,
-            borderRadius: BorderRadius.circular(40),
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text('SCREEN', style: TextStyle(color: AppColors.muted, fontSize: 11, letterSpacing: 4)),
-      ],
-    );
-  }
-
-  Widget _rowWidget(SeatRow row, double seat) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(width: 22, child: Text(row.row, style: const TextStyle(color: AppColors.muted, fontSize: 13))),
-          const SizedBox(width: 4),
-          ...row.seats.map((s) => _seatWidget(s, seat)),
-        ],
-      ),
-    );
-  }
-
-  Widget _seatWidget(Seat s, double size) {
-    // Aisle and blocked both render as empty walking space (no box).
-    if (!s.isSeat) {
-      return SizedBox(width: size + 6, height: size + 6);
+    // Price per tier name, and rows grouped by their tier (order preserved).
+    final priceByTier = {for (final t in map.tiers) t.name: t.price};
+    final groups = <String, List<SeatRow>>{};
+    for (final r in map.rows) {
+      (groups[r.tier ?? 'Seats'] ??= []).add(r);
     }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(children: [
+        const SizedBox(height: 8),
+        _screen(),
+        const SizedBox(height: 24),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            for (final g in groups.entries) ..._tierGroup(g.key, priceByTier[g.key] ?? 0, g.value),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  List<Widget> _tierGroup(String name, double price, List<SeatRow> rows) {
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12, top: 4),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
+          if (price > 0) ...[
+            const SizedBox(width: 10),
+            Text(rs(price).replaceAll('Rs ', '₹'), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.accent2)),
+          ],
+        ]),
+      ),
+      for (final r in rows) Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(width: 16, child: Text(r.row, style: const TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w700))),
+          const SizedBox(width: 4),
+          ...r.seats.map(_seatWidget),
+        ]),
+      ),
+      const SizedBox(height: 22),
+    ];
+  }
+
+  Widget _screen() {
+    return Column(children: [
+      Container(
+        width: 280, height: 30,
+        decoration: BoxDecoration(
+          border: const Border(top: BorderSide(color: AppColors.accent, width: 3)),
+          borderRadius: const BorderRadius.vertical(top: Radius.elliptical(280, 36)),
+          boxShadow: [BoxShadow(color: AppColors.accent.withValues(alpha: .25), blurRadius: 22, spreadRadius: -6, offset: const Offset(0, -4))],
+        ),
+      ),
+      const SizedBox(height: 8),
+      const Text('SCREEN THIS WAY', style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 3)),
+    ]);
+  }
+
+  Widget _seatWidget(Seat s) {
+    if (!s.isSeat) return const SizedBox(width: 16, height: 30);
 
     final selected = _selected.contains(s.id);
-    Color color;
-    if (selected) {
-      color = AppColors.seatMine;
-    } else {
-      switch (s.status) {
-        case 'booked':
-          color = AppColors.seatBooked;
-          break;
-        case 'locked':
-          color = AppColors.seatLocked;
-          break;
-        case 'mine':
-          color = AppColors.seatMine;
-          break;
-        default:
-          color = AppColors.seatAvailable;
-      }
+    final status = selected ? 'mine' : s.status;
+    Color bg, fg, borderC;
+    bool faded = false;
+    switch (status) {
+      case 'booked':
+      case 'locked':
+        bg = AppColors.surface2; fg = AppColors.muted; borderC = AppColors.line; faded = true;
+        break;
+      case 'mine':
+        bg = AppColors.seatMine; fg = Colors.white; borderC = AppColors.seatMine;
+        break;
+      default:
+        bg = AppColors.surface; fg = AppColors.accent2; borderC = AppColors.accent;
     }
-    final label = s.id.replaceAll('-', ''); // e.g. "A1"
+    final label = s.id.split('-').last;
     return GestureDetector(
-      onTap: () => _toggle(s),
+      onTap: faded ? null : () => _toggle(s),
       child: Container(
-        width: size,
-        height: size,
-        margin: const EdgeInsets.all(3),
+        width: 26, height: 26,
+        margin: const EdgeInsets.all(2.5),
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(7),
-          border: selected ? Border.all(color: Colors.white, width: 1.5) : null,
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(label, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
-        ),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(7), border: Border.all(color: borderC, width: 1.4)),
+        child: Text(label, style: TextStyle(fontSize: 10, color: fg, fontWeight: FontWeight.w700)),
       ),
     );
   }
 
   Widget _legend() {
-    Widget item(Color c, String label) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 14, height: 14, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))),
-            const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-          ],
-        );
+    Widget item(Color c, Color border, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 16, height: 16, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(5), border: Border.all(color: border, width: 1.4))),
+          const SizedBox(width: 7),
+          Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+        ]);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      color: AppColors.surface,
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
-        alignment: WrapAlignment.center,
-        children: [
-          item(AppColors.seatAvailable, 'Available'),
-          item(AppColors.seatMine, 'Selected'),
-          item(AppColors.seatLocked, 'On hold'),
-          item(AppColors.seatBooked, 'Sold'),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+        item(AppColors.surface, AppColors.accent, 'Available'),
+        item(AppColors.seatMine, AppColors.seatMine, 'Selected'),
+        item(AppColors.surface2, AppColors.line, 'Sold'),
+      ]),
     );
   }
 
   Widget _bottomBar() {
+    final chips = _selected.map((id) => id.replaceAll('-', '')).toList()..sort();
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${_selected.length} seat${_selected.length == 1 ? '' : 's'} · incl. 5% VAT',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                  const SizedBox(height: 2),
-                  Text(rs(_total * 1.05), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                ],
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        decoration: const BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.line))),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Expanded(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${_selected.length} SEAT${_selected.length == 1 ? '' : 'S'} · ${rs(_total).replaceAll('Rs ', '₹')}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: .3)),
+              if (chips.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 6, children: chips.take(6).map((c) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(6)),
+                  child: Text(c, style: const TextStyle(color: AppColors.accent2, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                )).toList()),
+              ],
+            ]),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: (_selected.isEmpty || _reserving) ? null : _proceed,
+            child: Container(
+              height: 50, padding: const EdgeInsets.symmetric(horizontal: 26), alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _selected.isEmpty ? AppColors.surface2 : AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _selected.isEmpty ? AppColors.line : AppColors.accent),
+                boxShadow: _selected.isEmpty ? null : [BoxShadow(color: AppColors.accent.withValues(alpha: .18), blurRadius: 16, offset: const Offset(0, 6))],
               ),
+              child: _reserving
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent))
+                  : Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('Proceed', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _selected.isEmpty ? AppColors.muted : AppColors.text)),
+                      const SizedBox(width: 8),
+                      Icon(Icons.arrow_forward, size: 18, color: _selected.isEmpty ? AppColors.muted : AppColors.text),
+                    ]),
             ),
-            SizedBox(
-              width: 160,
-              child: AccentButton(
-                label: 'Proceed',
-                loading: _reserving,
-                onPressed: _selected.isEmpty ? null : _proceed,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ]),
       ),
     );
   }

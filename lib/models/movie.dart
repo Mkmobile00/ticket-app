@@ -16,6 +16,7 @@ class Movie {
   final String? synopsis;
   final String? bannerImage;
   final String? trailerUrl;
+  final String? trailerEmbedUrl;
   final List<MovieCastMember> cast;
 
   Movie({
@@ -33,6 +34,7 @@ class Movie {
     this.synopsis,
     this.bannerImage,
     this.trailerUrl,
+    this.trailerEmbedUrl,
     this.cast = const [],
   });
 
@@ -54,6 +56,7 @@ class Movie {
         synopsis: j['synopsis'] as String?,
         bannerImage: j['banner_image'] as String?,
         trailerUrl: j['trailer_url'] as String?,
+        trailerEmbedUrl: j['trailer_embed_url'] as String?,
         cast: (j['cast'] as List?)
                 ?.map((e) => MovieCastMember.fromJson(Map<String, dynamic>.from(e)))
                 .toList() ??

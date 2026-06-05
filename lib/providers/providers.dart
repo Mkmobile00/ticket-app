@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,8 +8,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../core/api/api_config.dart';
 import '../core/api/api_service.dart';
 import '../core/api/dio_client.dart';
+import '../core/push/push_service.dart';
 import '../core/storage/city_store.dart';
+import '../core/storage/notification_store.dart';
 import '../core/storage/token_store.dart';
+import '../models/app_notification.dart';
 import '../models/city.dart';
 import '../models/user.dart';
 
@@ -33,6 +38,41 @@ final cityStoreProvider = Provider<CityStore>((ref) => CityStore());
 /// The city the user is browsing (null = all cities).
 final selectedCityProvider = StateProvider<City?>((ref) => null);
 
+/// In-app inbox of received push notifications (persisted locally).
+final notificationStoreProvider = Provider<NotificationStore>((ref) => NotificationStore());
+
+final notificationsProvider =
+    StateNotifierProvider<NotificationsNotifier, List<AppNotification>>(
+        (ref) => NotificationsNotifier(ref.read(notificationStoreProvider))..load());
+
+class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
+  final NotificationStore _store;
+  NotificationsNotifier(this._store) : super(const []);
+
+  Future<void> load() async {
+    state = await _store.all();
+  }
+
+  Future<void> add(AppNotification n) async {
+    // De-dupe by id (the same message can arrive foreground + on tap).
+    if (state.any((e) => e.id == n.id)) return;
+    state = [n, ...state];
+    await _store.save(state);
+  }
+
+  Future<void> markAllRead() async {
+    state = [for (final n in state) n.copyWith(read: true)];
+    await _store.save(state);
+  }
+
+  Future<void> clear() async {
+    state = const [];
+    await _store.save(state);
+  }
+
+  int get unread => state.where((n) => !n.read).length;
+}
+
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
 class AuthState {
@@ -53,6 +93,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Dio get _dio => ref.read(dioProvider);
   TokenStore get _store => ref.read(tokenStoreProvider);
 
+  /// Last FCM token we registered, so we can unregister it on logout.
+  String? _pushToken;
+  bool _pushRefreshHooked = false;
+
+  /// Register this device's FCM token with the backend (best-effort).
+  Future<void> _syncPushToken() async {
+    final token = await PushService.requestAndGetToken();
+    if (token == null) return;
+    _pushToken = token;
+    await ref.read(apiProvider).registerDevice(token, platform: PushService.platform);
+
+    // Re-register if FCM rotates the token while signed in.
+    if (!_pushRefreshHooked) {
+      _pushRefreshHooked = true;
+      PushService.onTokenRefresh.listen((t) {
+        if (state.status == AuthStatus.authenticated) {
+          _pushToken = t;
+          ref.read(apiProvider).registerDevice(t, platform: PushService.platform);
+        }
+      });
+    }
+  }
+
   /// On app start: if a token exists, fetch the user.
   Future<void> bootstrap() async {
     final token = await _store.read();
@@ -64,6 +127,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final res = await _dio.get('/me');
       if (res.statusCode == 200) {
         state = AuthState(status: AuthStatus.authenticated, user: User.fromJson(res.data['user']));
+        unawaited(_syncPushToken());
         return;
       }
     } catch (_) {}
@@ -77,6 +141,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (res.statusCode == 200 && res.data['token'] != null) {
       await _store.write(res.data['token']);
       state = AuthState(status: AuthStatus.authenticated, user: User.fromJson(res.data['user']));
+      unawaited(_syncPushToken());
       return null;
     }
     return apiError(res, 'Invalid credentials.');
@@ -93,6 +158,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if ((res.statusCode == 201 || res.statusCode == 200) && res.data['token'] != null) {
       await _store.write(res.data['token']);
       state = AuthState(status: AuthStatus.authenticated, user: User.fromJson(res.data['user']));
+      unawaited(_syncPushToken());
       return null;
     }
     return apiError(res, 'Registration failed.');
@@ -120,6 +186,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (res.statusCode == 200 && res.data['token'] != null) {
         await _store.write(res.data['token']);
         state = AuthState(status: AuthStatus.authenticated, user: User.fromJson(res.data['user']));
+        unawaited(_syncPushToken());
         return null;
       }
       return apiError(res, 'Google sign-in failed.');
@@ -139,6 +206,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Stop pushes to this device first.
+    if (_pushToken != null) {
+      try {
+        await ref.read(apiProvider).removeDevice(_pushToken!);
+      } catch (_) {}
+      _pushToken = null;
+    }
     try {
       await _dio.post('/logout');
     } catch (_) {}

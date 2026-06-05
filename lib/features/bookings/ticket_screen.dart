@@ -122,49 +122,93 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   Widget _content(Booking b) {
     final canCancel = b.isConfirmed || b.isPending;
     final hasQr = b.qrCode != null && b.qrCode!.isNotEmpty;
+    final seats = b.seats.map((s) => s.seat).join(', ');
+    final tier = b.seats.map((s) => s.tier).whereType<String>().toSet().join(', ');
+    final code = 'BLT${b.id.toString().padLeft(6, '0')}';
+    final date = b.bookedAt != null ? b.bookedAt!.split('T').first : '—';
+
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Text(b.subject, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text('Booking #${b.id}', style: const TextStyle(color: AppColors.muted)),
-                const SizedBox(height: 20),
-                _qr(b),
-                const SizedBox(height: 20),
-                const Divider(),
+        if (b.isConfirmed) ...[
+          Center(child: Container(
+            width: 72, height: 72,
+            decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+            child: const Icon(Icons.check_rounded, color: AppColors.accent2, size: 38),
+          )),
+          const SizedBox(height: 16),
+          const Text('Booking confirmed!', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.text)),
+          const SizedBox(height: 6),
+          const Text('Your tickets are ready. Show the QR at the gate.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted, fontSize: 13.5)),
+          const SizedBox(height: 20),
+        ],
+
+        Container(
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.line)),
+          padding: const EdgeInsets.all(18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(width: 56, height: 72, decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(colors: [Color(0xFF8d5a52), Color(0xFF5a3530)], begin: Alignment.topLeft, end: Alignment.bottomRight))),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(b.subject, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.text)),
                 const SizedBox(height: 8),
-                _info('Status', b.status.toUpperCase()),
-                _info('Seats', b.seats.map((s) => s.seat).join(', ')),
-                if (b.seats.any((s) => s.tier != null))
-                  _info('Tier', b.seats.map((s) => s.tier).whereType<String>().toSet().join(', ')),
-                _info('Total paid', rs(b.totalAmount)),
-                if (b.paymentMethod != null) _info('Payment', b.paymentMethod!.toUpperCase()),
-                if (b.bookedAt != null) _info('Booked', b.bookedAt!.split('T').first),
-              ],
-            ),
-          ),
+                if (tier.isNotEmpty || seats.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(999)),
+                    child: Text('${tier.isNotEmpty ? '$tier · ' : ''}${b.seats.length} seat${b.seats.length == 1 ? '' : 's'}',
+                        style: const TextStyle(color: AppColors.accent2, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                  ),
+              ])),
+            ]),
+            const SizedBox(height: 16),
+            const _Dashed(),
+            const SizedBox(height: 16),
+            Row(children: [Expanded(child: _kv('SEATS', seats.isEmpty ? '—' : seats)), Expanded(child: _kv('PAID', rs(b.totalAmount)))]),
+            const SizedBox(height: 14),
+            Row(children: [Expanded(child: _kv('DATE', date)), Expanded(child: _kv('PAYMENT', (b.paymentMethod ?? '—').toUpperCase()))]),
+            const SizedBox(height: 18),
+            if (hasQr) Center(child: _qr(b)),
+            const SizedBox(height: 14),
+            const _Dashed(),
+            const SizedBox(height: 14),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('BOOKING ID', style: TextStyle(fontSize: 10.5, color: AppColors.muted, fontWeight: FontWeight.w700, letterSpacing: .5)),
+                const SizedBox(height: 2),
+                Text(code, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
+              ]),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(999)),
+                child: Text(b.status[0].toUpperCase() + b.status.substring(1), style: const TextStyle(color: AppColors.accent2, fontWeight: FontWeight.w800, fontSize: 12)),
+              ),
+            ]),
+          ]),
         ),
+
         const SizedBox(height: 20),
-        if (hasQr)
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.surface2, minimumSize: const Size.fromHeight(50)),
-            icon: const Icon(Icons.download_outlined),
-            label: const Text('Download / Share QR'),
-            onPressed: _sharing ? null : () => _shareQr(b),
-          ),
+        Row(children: [
+          if (hasQr)
+            Expanded(child: GestureDetector(
+              onTap: _sharing ? null : () => _shareQr(b),
+              child: Container(height: 50, alignment: Alignment.center,
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.line)),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.download_outlined, size: 18, color: AppColors.text), SizedBox(width: 8),
+                  Text('Download', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.text)),
+                ])),
+            )),
+          if (hasQr) const SizedBox(width: 12),
+          Expanded(child: AccentButton(label: 'My Bookings', onPressed: () => context.go('/bookings'))),
+        ]),
         const SizedBox(height: 12),
         if (canCancel)
           OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.seatBooked,
-              side: const BorderSide(color: AppColors.seatBooked),
-              minimumSize: const Size.fromHeight(50),
-            ),
+            style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFE5484D), side: const BorderSide(color: Color(0xFFE5484D)), minimumSize: const Size.fromHeight(50)),
             icon: const Icon(Icons.cancel_outlined),
             label: const Text('Cancel booking'),
             onPressed: () => _cancel(b),
@@ -172,6 +216,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
       ],
     );
   }
+
+  Widget _kv(String k, String v) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(k, style: const TextStyle(fontSize: 10.5, color: AppColors.muted, fontWeight: FontWeight.w700, letterSpacing: .5)),
+        const SizedBox(height: 3),
+        Text(v, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.text)),
+      ]);
 
   Widget _qr(Booking b) {
     if (b.qrCode == null || b.qrCode!.isEmpty) {
@@ -206,16 +256,18 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     );
   }
 
-  Widget _info(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
+}
+
+class _Dashed extends StatelessWidget {
+  const _Dashed();
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (_, c) {
+      final count = (c.maxWidth / 9).floor().clamp(1, 200);
+      return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: AppColors.muted)),
-          Flexible(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
-        ],
-      ),
-    );
+        children: List.generate(count, (_) => Container(width: 5, height: 1.4, color: AppColors.line)),
+      );
+    });
   }
 }

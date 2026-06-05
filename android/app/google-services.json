@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "283599346985",
+    "project_id": "ticketnepal-89058",
+    "storage_bucket": "ticketnepal-89058.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283599346985:android:cfd041a49241d5df07ab38",
+        "android_client_info": {
+          "package_name": "com.buleto.buleto_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATUKyGewfmDVCoGEQc-qhdbHx0zfaFpss"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
