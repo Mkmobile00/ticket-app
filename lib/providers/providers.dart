@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -190,8 +191,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return null;
       }
       return apiError(res, 'Google sign-in failed.');
-    } catch (e) {
-      return 'Google sign-in failed: $e';
+    } catch (e, st) {
+      // Don't surface raw exception/SDK internals to the user.
+      if (kDebugMode) debugPrint('Google sign-in failed: $e\n$st');
+      return 'Google sign-in failed. Please try again.';
     }
   }
 
