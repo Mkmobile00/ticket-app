@@ -53,7 +53,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
     try {
       final msg = await ref.read(apiProvider).resetPassword(
-            email: _email.text.trim(),
+            identifier: _email.text.trim(),
             code: _code.text.trim(),
             password: _password.text,
           );
@@ -79,8 +79,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             children: [
               Text(
                 _codeSent
-                    ? 'Enter the 6-digit code we sent and choose a new password.'
-                    : "Enter your email and we'll send a reset code.",
+                    ? 'Enter the 6-digit code we sent to your email & phone, then choose a new password.'
+                    : "Enter your email or phone number and we'll send a reset code.",
                 style: const TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 20),
@@ -92,8 +92,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               TextField(
                 controller: _email,
                 enabled: !_codeSent,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(hintText: 'Email'),
+                keyboardType: TextInputType.text,
+                decoration: const InputDecoration(hintText: 'Email or phone number'),
               ),
               if (_codeSent) ...[
                 const SizedBox(height: 12),

@@ -20,6 +20,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _error;
 
   Future<void> _submit() async {
+    if (_name.text.trim().isEmpty || _email.text.trim().isEmpty || _phone.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = 'Name, email, phone and password are all required.');
+      return;
+    }
     setState(() { _loading = true; _error = null; });
     final err = await ref.read(authProvider.notifier).register(
           _name.text.trim(), _email.text.trim(), _password.text, _phone.text.trim());
@@ -48,7 +52,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 12),
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(hintText: 'Email')),
               const SizedBox(height: 12),
-              TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(hintText: 'Phone (optional)')),
+              TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(hintText: 'Phone number')),
               const SizedBox(height: 12),
               TextField(controller: _password, obscureText: true, decoration: const InputDecoration(hintText: 'Password (min 8 chars)')),
               const SizedBox(height: 20),

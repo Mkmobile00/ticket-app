@@ -196,16 +196,16 @@ class ApiService {
     return _map(r)['message'] ?? 'Verified';
   }
 
-  // ---- Password reset ----
-  Future<String> forgotPassword(String email) async {
-    final r = await _dio.post('/password/forgot', data: {'email': email});
+  // ---- Password reset (identifier = email OR phone) ----
+  Future<String> forgotPassword(String identifier) async {
+    final r = await _dio.post('/password/forgot', data: {'identifier': identifier});
     if (!_ok(r)) _fail(r);
-    return _map(r)['message'] ?? 'If that email exists, a code was sent.';
+    return _map(r)['message'] ?? 'If that account exists, a code was sent.';
   }
 
-  Future<String> resetPassword({required String email, required String code, required String password}) async {
+  Future<String> resetPassword({required String identifier, required String code, required String password}) async {
     final r = await _dio.post('/password/reset', data: {
-      'email': email,
+      'identifier': identifier,
       'code': code,
       'password': password,
       'password_confirmation': password,

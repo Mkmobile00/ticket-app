@@ -39,7 +39,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     setState(() { _sending = true; _error = null; _info = null; });
     try {
       final msg = await ref.read(apiProvider).sendEmailVerification();
-      if (mounted) setState(() => _info = initial ? 'We emailed a 6-digit code.' : msg);
+      if (mounted) setState(() => _info = initial ? 'We sent a 6-digit code to your email and phone.' : msg);
     } catch (_) {
       if (mounted) setState(() => _error = 'Could not send the code. Try "Resend".');
     } finally {
@@ -50,7 +50,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   Future<void> _verify() async {
     final code = _code.text.trim();
     if (code.length < 4) {
-      setState(() => _error = 'Enter the code from your email.');
+      setState(() => _error = 'Enter the code from your email or SMS.');
       return; // can't proceed without typing the code
     }
     setState(() { _loading = true; _error = null; _info = null; });
