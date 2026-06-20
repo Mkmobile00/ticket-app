@@ -15,6 +15,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
+  final _phone = TextEditingController();
   final _password = TextEditingController();
   bool _signup = false;
   bool _obscure = true;
@@ -22,10 +23,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _error;
 
   Future<void> _submit() async {
+    if (_signup && (_name.text.trim().isEmpty || _email.text.trim().isEmpty || _phone.text.trim().isEmpty || _password.text.isEmpty)) {
+      setState(() => _error = 'Name, email, phone and password are all required.');
+      return;
+    }
     setState(() { _loading = true; _error = null; });
     final auth = ref.read(authProvider.notifier);
     final err = _signup
-        ? await auth.register(_name.text.trim(), _email.text.trim(), _password.text, null)
+        ? await auth.register(_name.text.trim(), _email.text.trim(), _password.text, _phone.text.trim())
         : await auth.login(_email.text.trim(), _password.text);
     if (!mounted) return;
     setState(() => _loading = false);
@@ -104,6 +109,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               _label('Email'),
               _field(_email, 'you@example.com', Icons.mail_outline, keyboard: TextInputType.emailAddress),
               const SizedBox(height: 16),
+              if (_signup) ...[
+                _label('Phone number'),
+                _field(_phone, '98XXXXXXXX', Icons.phone_outlined, keyboard: TextInputType.phone),
+                const SizedBox(height: 16),
+              ],
               _label('Password'),
               _field(_password, '••••••••', Icons.lock_outline, obscure: _obscure, suffix: IconButton(
                 icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.muted, size: 20),
